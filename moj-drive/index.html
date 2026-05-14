@@ -1,0 +1,1295 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Mój Drive PL</title>
+<meta name="theme-color" content="#1A73E8">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Mój Drive PL">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<style>
+:root {
+  --bg: #ffffff;
+  --bg2: #f5f5f5;
+  --bg3: #ececec;
+  --text: #1a1a1a;
+  --text2: #5f5f5f;
+  --accent: #1A73E8;
+  --accent2: #1558b0;
+  --danger: #e53935;
+  --success: #34a853;
+  --shadow: rgba(0,0,0,0.18);
+  --shadow2: rgba(0,0,0,0.08);
+  --border: rgba(0,0,0,0.12);
+  --card: #ffffff;
+  --overlay: rgba(0,0,0,0.5);
+  --input-bg: #f8f8f8;
+}
+body.dark {
+  --bg: #1e1e1e;
+  --bg2: #2a2a2a;
+  --bg3: #333333;
+  --text: #f0f0f0;
+  --text2: #aaaaaa;
+  --accent: #4a90e2;
+  --accent2: #2c6fcf;
+  --shadow: rgba(0,0,0,0.5);
+  --shadow2: rgba(0,0,0,0.3);
+  --border: rgba(255,255,255,0.1);
+  --card: #2a2a2a;
+  --input-bg: #333;
+}
+* { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+html,body { width:100%; height:100%; overflow:hidden; font-family:'Segoe UI',system-ui,sans-serif; background:var(--bg); color:var(--text); }
+#map { width:100%; height:100%; position:absolute; top:0; left:0; z-index:1; }
+#map.greyed { filter: brightness(0.4) grayscale(0.3); transition: filter 0.3s; }
+
+/* TOP BAR */
+#topbar {
+  position:absolute; top:0; left:0; right:0; z-index:100;
+  padding:10px 12px 0;
+  pointer-events:none;
+}
+#search-row {
+  display:flex; align-items:center; gap:8px;
+  pointer-events:all;
+}
+#search-box {
+  flex:1; display:flex; align-items:center;
+  background:var(--card);
+  border-radius:28px;
+  box-shadow:0 2px 12px var(--shadow);
+  padding:0 14px;
+  height:48px;
+  gap:10px;
+  border:1px solid var(--border);
+}
+#search-icon { color:var(--accent); font-size:20px; flex-shrink:0; }
+#search-input {
+  flex:1; border:none; outline:none; background:transparent;
+  font-size:15px; color:var(--text);
+}
+#search-input::placeholder { color:var(--text2); }
+#search-clear { display:none; cursor:pointer; color:var(--text2); font-size:18px; }
+#profile-btn {
+  width:48px; height:48px; border-radius:50%;
+  background:var(--accent); border:none; cursor:pointer;
+  overflow:hidden; box-shadow:0 2px 12px var(--shadow);
+  display:flex; align-items:center; justify-content:center;
+  flex-shrink:0;
+}
+#profile-btn img { width:100%; height:100%; object-fit:cover; border-radius:50%; display:none; }
+#profile-btn-icon { color:#fff; font-size:22px; }
+
+/* SEARCH RESULTS */
+#search-results {
+  display:none;
+  background:var(--card);
+  border-radius:16px;
+  margin-top:8px;
+  box-shadow:0 4px 20px var(--shadow);
+  overflow:hidden;
+  max-height:300px;
+  overflow-y:auto;
+  pointer-events:all;
+}
+.search-item {
+  display:flex; align-items:center; gap:12px;
+  padding:12px 16px; cursor:pointer;
+  border-bottom:1px solid var(--border);
+  transition:background 0.15s;
+}
+.search-item:last-child { border-bottom:none; }
+.search-item:hover { background:var(--bg2); }
+.search-item-icon { font-size:20px; color:var(--accent); flex-shrink:0; }
+.search-item-text { flex:1; }
+.search-item-name { font-size:14px; font-weight:500; color:var(--text); }
+.search-item-sub { font-size:12px; color:var(--text2); }
+
+/* BOTTOM CONTROLS */
+#bottom-controls {
+  position:absolute; bottom:20px; right:14px; z-index:100;
+  display:flex; flex-direction:column; gap:8px;
+  pointer-events:all;
+}
+.map-btn {
+  width:44px; height:44px; border-radius:50%;
+  background:var(--card); border:none; cursor:pointer;
+  box-shadow:0 2px 10px var(--shadow);
+  display:flex; align-items:center; justify-content:center;
+  font-size:20px; color:var(--text);
+  transition:background 0.15s, transform 0.1s;
+}
+.map-btn:active { transform:scale(0.92); }
+
+/* FAB locate */
+#locate-btn {
+  position:absolute; bottom:20px; left:14px; z-index:100;
+  width:50px; height:50px; border-radius:50%;
+  background:var(--card); border:none; cursor:pointer;
+  box-shadow:0 2px 14px var(--shadow);
+  display:flex; align-items:center; justify-content:center;
+  font-size:22px; color:var(--accent);
+}
+
+/* LAYER CHIPS */
+#layer-bar {
+  position:absolute; top:74px; left:0; right:0; z-index:99;
+  display:flex; gap:8px; padding:0 12px;
+  overflow-x:auto; pointer-events:all;
+  scrollbar-width:none;
+}
+#layer-bar::-webkit-scrollbar { display:none; }
+.layer-chip {
+  flex-shrink:0;
+  background:var(--card);
+  border:1px solid var(--border);
+  border-radius:20px;
+  padding:6px 14px;
+  font-size:13px; font-weight:500;
+  color:var(--text);
+  cursor:pointer;
+  box-shadow:0 1px 6px var(--shadow2);
+  white-space:nowrap;
+  display:flex; align-items:center; gap:6px;
+  transition:background 0.15s, color 0.15s;
+}
+.layer-chip.active { background:var(--accent); color:#fff; border-color:var(--accent); }
+.layer-chip-icon { font-size:16px; }
+
+/* ONBOARDING OVERLAY */
+#onboarding {
+  position:fixed; inset:0; z-index:999;
+  background:var(--overlay);
+  display:flex; align-items:center; justify-content:center;
+  padding:20px;
+}
+#onboarding-card {
+  background:var(--card);
+  border-radius:24px;
+  padding:28px 24px;
+  max-width:340px; width:100%;
+  box-shadow:0 8px 40px rgba(0,0,0,0.4);
+  text-align:center;
+}
+#onboarding-logo {
+  width:72px; height:72px; border-radius:18px;
+  background:linear-gradient(135deg,#1A73E8,#0d47a1);
+  display:flex; align-items:center; justify-content:center;
+  margin:0 auto 18px;
+  font-size:36px;
+}
+#onboarding-card h2 { font-size:20px; font-weight:700; margin-bottom:6px; }
+#onboarding-card p { font-size:14px; color:var(--text2); margin-bottom:20px; line-height:1.5; }
+#roblox-input {
+  width:100%; padding:13px 16px;
+  border:1.5px solid var(--border);
+  border-radius:12px;
+  font-size:15px;
+  background:var(--input-bg);
+  color:var(--text);
+  outline:none;
+  margin-bottom:12px;
+  transition:border-color 0.2s;
+}
+#roblox-input:focus { border-color:var(--accent); }
+#roblox-input.error { border-color:var(--danger); }
+#onboarding-error { font-size:12px; color:var(--danger); margin-bottom:10px; display:none; }
+#onboarding-submit {
+  width:100%; padding:14px;
+  background:var(--accent); color:#fff;
+  border:none; border-radius:12px;
+  font-size:15px; font-weight:600;
+  cursor:pointer;
+  transition:background 0.2s, transform 0.1s;
+}
+#onboarding-submit:hover { background:var(--accent2); }
+#onboarding-submit:active { transform:scale(0.97); }
+#onboarding-submit:disabled { opacity:0.6; cursor:default; }
+#onboarding-skip { margin-top:12px; font-size:13px; color:var(--text2); cursor:pointer; text-decoration:underline; }
+
+/* PROFILE PANEL */
+#profile-panel {
+  display:none;
+  position:fixed; inset:0; z-index:500;
+  background:var(--overlay);
+}
+#profile-drawer {
+  position:absolute; top:0; right:0; bottom:0;
+  width:min(320px,88vw);
+  background:var(--card);
+  box-shadow:-4px 0 30px var(--shadow);
+  display:flex; flex-direction:column;
+  overflow-y:auto;
+  transform:translateX(100%);
+  transition:transform 0.3s cubic-bezier(.4,0,.2,1);
+}
+#profile-panel.open #profile-drawer { transform:translateX(0); }
+#profile-header {
+  padding:48px 20px 20px;
+  background:linear-gradient(160deg,#1A73E8 0%,#0d47a1 100%);
+  text-align:center;
+  color:#fff;
+  flex-shrink:0;
+}
+#profile-avatar {
+  width:80px; height:80px; border-radius:50%;
+  background:rgba(255,255,255,0.2);
+  margin:0 auto 12px;
+  overflow:hidden; border:3px solid rgba(255,255,255,0.5);
+  display:flex; align-items:center; justify-content:center;
+  font-size:32px; font-weight:700;
+}
+#profile-avatar img { width:100%; height:100%; object-fit:cover; display:none; }
+#profile-name { font-size:18px; font-weight:700; }
+#profile-sub { font-size:13px; opacity:0.85; margin-top:4px; }
+#profile-close-btn {
+  position:absolute; top:12px; right:12px;
+  background:rgba(255,255,255,0.2); border:none; border-radius:50%;
+  width:34px; height:34px; cursor:pointer; color:#fff;
+  display:flex; align-items:center; justify-content:center; font-size:18px;
+}
+#profile-body { flex:1; padding:16px 0; }
+.settings-group { padding:0 0 8px; }
+.settings-label {
+  font-size:11px; font-weight:600; letter-spacing:.8px;
+  color:var(--text2); text-transform:uppercase;
+  padding:12px 20px 6px;
+}
+.settings-row {
+  display:flex; align-items:center; gap:12px;
+  padding:13px 20px; cursor:pointer;
+  transition:background 0.15s;
+}
+.settings-row:hover { background:var(--bg2); }
+.settings-row-icon { font-size:20px; color:var(--accent); flex-shrink:0; width:24px; text-align:center; }
+.settings-row-text { flex:1; font-size:14px; }
+.settings-row-sub { font-size:12px; color:var(--text2); }
+.settings-row-right { flex-shrink:0; }
+
+/* TOGGLE */
+.toggle { position:relative; width:42px; height:24px; }
+.toggle input { display:none; }
+.toggle-track {
+  width:42px; height:24px; border-radius:12px;
+  background:var(--bg3); cursor:pointer;
+  transition:background 0.2s;
+  display:block;
+}
+.toggle input:checked ~ .toggle-track { background:var(--accent); }
+.toggle-thumb {
+  position:absolute; top:3px; left:3px;
+  width:18px; height:18px; border-radius:50%;
+  background:#fff; pointer-events:none;
+  transition:transform 0.2s;
+  box-shadow:0 1px 4px rgba(0,0,0,0.3);
+}
+.toggle input:checked ~ .toggle-thumb { transform:translateX(18px); }
+
+/* DIVIDER */
+.settings-divider { height:1px; background:var(--border); margin:0 20px; }
+
+/* LOGOUT */
+#logout-btn {
+  margin:16px 20px;
+  width:calc(100% - 40px);
+  padding:13px;
+  background:transparent;
+  border:1.5px solid var(--danger);
+  color:var(--danger);
+  border-radius:12px;
+  font-size:14px; font-weight:600;
+  cursor:pointer;
+  transition:background 0.2s;
+}
+#logout-btn:hover { background:rgba(229,57,53,0.08); }
+
+/* PLACE CARD (bottom sheet) */
+#place-card {
+  display:none;
+  position:absolute; bottom:0; left:0; right:0; z-index:200;
+  background:var(--card);
+  border-radius:20px 20px 0 0;
+  box-shadow:0 -4px 20px var(--shadow);
+  padding:16px 20px 30px;
+  max-height:45vh; overflow-y:auto;
+}
+#place-card-drag { width:40px; height:4px; background:var(--bg3); border-radius:2px; margin:0 auto 14px; }
+#place-card-name { font-size:17px; font-weight:700; margin-bottom:4px; }
+#place-card-type { font-size:13px; color:var(--text2); margin-bottom:14px; }
+#place-card-actions { display:flex; gap:10px; }
+.place-action-btn {
+  flex:1; padding:11px 8px;
+  border-radius:10px; border:none; cursor:pointer;
+  font-size:13px; font-weight:600;
+  display:flex; flex-direction:column; align-items:center; gap:4px;
+}
+.place-action-btn.primary { background:var(--accent); color:#fff; }
+.place-action-btn.secondary { background:var(--bg2); color:var(--text); }
+.place-action-icon { font-size:18px; }
+#place-card-close {
+  position:absolute; top:14px; right:16px;
+  background:var(--bg2); border:none; border-radius:50%;
+  width:30px; height:30px; cursor:pointer; font-size:16px;
+  display:flex; align-items:center; justify-content:center;
+  color:var(--text);
+}
+
+/* LOADING */
+#map-loading {
+  position:absolute; inset:0; z-index:50;
+  background:var(--bg);
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  gap:16px;
+}
+.spinner {
+  width:40px; height:40px; border-radius:50%;
+  border:3px solid var(--bg3);
+  border-top-color:var(--accent);
+  animation:spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform:rotate(360deg); } }
+
+/* SCALE / ATTRIBUTION tweaks */
+.leaflet-control-attribution { font-size:10px; }
+
+/* MAP DARK MODE - custom tiles handle this */
+body.dark .leaflet-tile-pane { filter: brightness(0.9) invert(1) hue-rotate(200deg) saturate(0.7) brightness(0.85); }
+
+/* Snackbar */
+#snackbar {
+  position:fixed; bottom:80px; left:50%; transform:translateX(-50%);
+  background:#333; color:#fff; padding:10px 18px;
+  border-radius:20px; font-size:13px;
+  z-index:9999; opacity:0; transition:opacity 0.3s;
+  pointer-events:none; white-space:nowrap;
+}
+
+/* animate panel */
+@keyframes slideUp { from { transform:translateY(20px); opacity:0; } to { transform:translateY(0); opacity:1; } }
+#place-card.open { animation:slideUp 0.25s ease; }
+
+/* ROUTE PANEL */
+#route-panel {
+  display:none;
+  position:absolute; bottom:0; left:0; right:0; z-index:201;
+  background:var(--card);
+  border-radius:20px 20px 0 0;
+  box-shadow:0 -4px 20px var(--shadow);
+  padding:16px 20px 30px;
+}
+#route-drag { width:40px; height:4px; background:var(--bg3); border-radius:2px; margin:0 auto 14px; }
+#route-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
+#route-header h3 { font-size:16px; font-weight:700; }
+#route-close-btn {
+  background:var(--bg2); border:none; border-radius:50%;
+  width:30px; height:30px; cursor:pointer; font-size:16px;
+  display:flex; align-items:center; justify-content:center; color:var(--text);
+}
+.route-input-row { display:flex; align-items:center; gap:10px; margin-bottom:8px; }
+.route-dot { width:14px; height:14px; border-radius:50%; flex-shrink:0; }
+.route-dot.a { background:#34a853; }
+.route-dot.b { background:#e53935; }
+.route-input {
+  flex:1; padding:11px 14px;
+  border:1.5px solid var(--border); border-radius:10px;
+  font-size:14px; background:var(--input-bg); color:var(--text);
+  outline:none; transition:border-color 0.2s;
+}
+.route-input:focus { border-color:var(--accent); }
+#route-middle-row { display:flex; align-items:center; justify-content:flex-end; margin:-4px 0 8px; }
+#route-swap-btn {
+  width:32px; height:32px; border-radius:50%;
+  background:var(--bg2); border:1px solid var(--border);
+  cursor:pointer; font-size:15px;
+  display:flex; align-items:center; justify-content:center;
+}
+#route-go-btn {
+  width:100%; padding:13px;
+  background:var(--accent); color:#fff;
+  border:none; border-radius:12px;
+  font-size:14px; font-weight:600; cursor:pointer;
+  margin-top:4px; transition:background 0.2s;
+}
+#route-go-btn:hover { background:var(--accent2); }
+#route-go-btn:disabled { opacity:0.6; cursor:default; }
+#route-info {
+  display:none; margin-top:12px; padding:12px 14px;
+  background:var(--bg2); border-radius:10px;
+  font-size:13px; color:var(--text2); line-height:1.6;
+}
+#route-info strong { color:var(--text); font-size:14px; }
+#route-clear-btn {
+  display:none; width:100%; padding:10px;
+  background:transparent; border:1.5px solid var(--danger);
+  color:var(--danger); border-radius:10px;
+  font-size:13px; font-weight:600; cursor:pointer; margin-top:8px;
+}
+#route-fab {
+  position:absolute; bottom:80px; right:14px; z-index:100;
+  width:50px; height:50px; border-radius:50%;
+  background:var(--accent); border:none; cursor:pointer;
+  box-shadow:0 3px 14px var(--shadow);
+  display:flex; align-items:center; justify-content:center;
+  font-size:22px; color:#fff; transition:transform 0.15s;
+}
+#route-fab:active { transform:scale(0.92); }
+</style>
+</head>
+<body>
+
+<!-- MAP -->
+<div id="map"></div>
+
+<!-- LOADING -->
+<div id="map-loading">
+  <div style="font-size:32px;">🗺️</div>
+  <div class="spinner"></div>
+  <div style="font-size:14px;color:var(--text2);">Ładowanie mapy Polski…</div>
+</div>
+
+<!-- ONBOARDING -->
+<div id="onboarding">
+  <div id="onboarding-card">
+    <div id="onboarding-logo">🗺️</div>
+    <h2>Mój Drive PL</h2>
+    <p>Twoja osobista mapa Polski.<br>Wpisz nazwę użytkownika Roblox, aby personalizować aplikację.</p>
+    <input id="roblox-input" type="text" placeholder="Nazwa użytkownika Roblox (np. binary_devs)" autocomplete="off" autocapitalize="off" spellcheck="false">
+    <div id="onboarding-error">Nieprawidłowa nazwa (3-20 znaków, litery/cyfry/_)</div>
+    <button id="onboarding-submit">Zaloguj się przez Roblox</button>
+    <div id="onboarding-skip">Pomiń na razie</div>
+  </div>
+</div>
+
+<!-- TOP BAR -->
+<div id="topbar">
+  <div id="search-row">
+    <div id="search-box">
+      <span id="search-icon">🔍</span>
+      <input id="search-input" type="text" placeholder="Szukaj miejsc w Polsce…" autocomplete="off">
+      <span id="search-clear">✕</span>
+    </div>
+    <button id="profile-btn" title="Profil">
+      <img id="profile-img" src="" alt="avatar">
+      <span id="profile-btn-icon">👤</span>
+    </button>
+  </div>
+  <div id="search-results"></div>
+</div>
+
+<!-- LAYER CHIPS -->
+<div id="layer-bar">
+  <div class="layer-chip active" data-layer="default"><span class="layer-chip-icon">🗺️</span>Mapa</div>
+  <div class="layer-chip" data-layer="satellite"><span class="layer-chip-icon">🛰️</span>Satelita</div>
+  <div class="layer-chip" data-layer="traffic"><span class="layer-chip-icon">🚦</span>Ruch</div>
+  <div class="layer-chip" data-layer="gas"><span class="layer-chip-icon">⛽</span>Stacje</div>
+  <div class="layer-chip" data-layer="shops"><span class="layer-chip-icon">🛒</span>Sklepy</div>
+  <div class="layer-chip" data-layer="food"><span class="layer-chip-icon">🍽️</span>Restauracje</div>
+  <div class="layer-chip" data-layer="hotels"><span class="layer-chip-icon">🏨</span>Hotele</div>
+  <div class="layer-chip" data-layer="hospitals"><span class="layer-chip-icon">🏥</span>Szpitale</div>
+</div>
+
+<!-- BOTTOM CONTROLS -->
+<div id="bottom-controls">
+  <button class="map-btn" id="zoom-in" title="Przybliż">＋</button>
+  <button class="map-btn" id="zoom-out" title="Oddal">－</button>
+  <button class="map-btn" id="compass-btn" title="Kompas">🧭</button>
+</div>
+
+<!-- LOCATE BTN -->
+<button id="locate-btn" title="Moja lokalizacja">📍</button>
+
+<!-- PLACE CARD -->
+<div id="place-card">
+  <div id="place-card-drag"></div>
+  <button id="place-card-close">✕</button>
+  <div id="place-card-name"></div>
+  <div id="place-card-type"></div>
+  <div id="place-card-actions">
+    <button class="place-action-btn primary" id="nav-btn"><span class="place-action-icon">🧭</span>Nawiguj</button>
+    <button class="place-action-btn secondary" id="save-btn"><span class="place-action-icon">🔖</span>Zapisz</button>
+    <button class="place-action-btn secondary" id="share-btn"><span class="place-action-icon">🔗</span>Udostępnij</button>
+  </div>
+</div>
+
+<!-- PROFILE PANEL -->
+<div id="profile-panel">
+  <div id="profile-drawer">
+    <div id="profile-header">
+      <button id="profile-close-btn">✕</button>
+      <div id="profile-avatar">
+        <img id="drawer-avatar-img" src="" alt="">
+        <span id="drawer-avatar-initials"></span>
+      </div>
+      <div id="profile-name">Gość</div>
+      <div id="profile-sub">Roblox</div>
+    </div>
+    <div id="profile-body">
+      <div class="settings-group">
+        <div class="settings-label">Wygląd</div>
+        <div class="settings-row" id="dark-mode-row">
+          <span class="settings-row-icon">🌙</span>
+          <div class="settings-row-text">
+            <div>Tryb ciemny</div>
+            <div class="settings-row-sub">Zmień schemat kolorów</div>
+          </div>
+          <div class="settings-row-right">
+            <label class="toggle">
+              <input type="checkbox" id="dark-toggle">
+              <span class="toggle-track"></span>
+              <span class="toggle-thumb"></span>
+            </label>
+          </div>
+        </div>
+        <div class="settings-divider"></div>
+        <div class="settings-row" id="map-style-row">
+          <span class="settings-row-icon">🗺️</span>
+          <div class="settings-row-text">
+            <div>Styl mapy</div>
+            <div class="settings-row-sub" id="map-style-label">Standardowy</div>
+          </div>
+          <div class="settings-row-right" style="font-size:18px; color:var(--text2);">›</div>
+        </div>
+      </div>
+      <div class="settings-divider"></div>
+      <div class="settings-group">
+        <div class="settings-label">Nawigacja</div>
+        <div class="settings-row">
+          <span class="settings-row-icon">🗣️</span>
+          <div class="settings-row-text">
+            <div>Komunikaty głosowe</div>
+            <div class="settings-row-sub">Wskazówki podczas jazdy</div>
+          </div>
+          <div class="settings-row-right">
+            <label class="toggle">
+              <input type="checkbox" id="voice-toggle" checked>
+              <span class="toggle-track"></span>
+              <span class="toggle-thumb"></span>
+            </label>
+          </div>
+        </div>
+        <div class="settings-divider"></div>
+        <div class="settings-row">
+          <span class="settings-row-icon">🚦</span>
+          <div class="settings-row-text">
+            <div>Unikaj autostrad</div>
+            <div class="settings-row-sub">Trasy alternatywne</div>
+          </div>
+          <div class="settings-row-right">
+            <label class="toggle">
+              <input type="checkbox" id="highway-toggle">
+              <span class="toggle-track"></span>
+              <span class="toggle-thumb"></span>
+            </label>
+          </div>
+        </div>
+        <div class="settings-divider"></div>
+        <div class="settings-row">
+          <span class="settings-row-icon">💶</span>
+          <div class="settings-row-text">
+            <div>Unikaj płatnych dróg</div>
+            <div class="settings-row-sub">Bezpłatne trasy</div>
+          </div>
+          <div class="settings-row-right">
+            <label class="toggle">
+              <input type="checkbox" id="toll-toggle">
+              <span class="toggle-track"></span>
+              <span class="toggle-thumb"></span>
+            </label>
+          </div>
+        </div>
+      </div>
+      <div class="settings-divider"></div>
+      <div class="settings-group">
+        <div class="settings-label">Konto</div>
+        <div class="settings-row">
+          <span class="settings-row-icon">🔄</span>
+          <div class="settings-row-text">
+            <div>Zmień konto Roblox</div>
+            <div class="settings-row-sub" id="current-account-label">Brak konta</div>
+          </div>
+          <div class="settings-row-right" style="font-size:18px; color:var(--text2);">›</div>
+        </div>
+        <div class="settings-divider"></div>
+        <div class="settings-row">
+          <span class="settings-row-icon">❓</span>
+          <div class="settings-row-text">
+            <div>Pomoc i opinie</div>
+            <div class="settings-row-sub">Zgłoś problem</div>
+          </div>
+          <div class="settings-row-right" style="font-size:18px; color:var(--text2);">›</div>
+        </div>
+        <div class="settings-divider"></div>
+        <div class="settings-row">
+          <span class="settings-row-icon">ℹ️</span>
+          <div class="settings-row-text">
+            <div>O aplikacji</div>
+            <div class="settings-row-sub">Mój Drive PL v1.0</div>
+          </div>
+          <div class="settings-row-right" style="font-size:18px; color:var(--text2);">›</div>
+        </div>
+      </div>
+      <button id="logout-btn">🚪 Wyloguj się</button>
+    </div>
+  </div>
+</div>
+
+<!-- SNACKBAR -->
+<!-- ROUTE FAB -->
+<button id="route-fab" title="Pokaż trasę">🔀</button>
+
+<!-- ROUTE PANEL -->
+<div id="route-panel">
+  <div id="route-drag"></div>
+  <div id="route-header">
+    <h3>🗺️ Trasa A → B</h3>
+    <button id="route-close-btn">✕</button>
+  </div>
+  <div class="route-input-row">
+    <span class="route-dot a"></span>
+    <input class="route-input" id="route-a" type="text" placeholder="Punkt startowy (A) — np. Warszawa" autocomplete="off">
+  </div>
+  <div id="route-middle-row">
+    <button id="route-swap-btn" title="Zamień punkty">⇅</button>
+  </div>
+  <div class="route-input-row">
+    <span class="route-dot b"></span>
+    <input class="route-input" id="route-b" type="text" placeholder="Cel podróży (B) — np. Kraków" autocomplete="off">
+  </div>
+  <button id="route-go-btn">Wyznacz trasę</button>
+  <div id="route-info"></div>
+  <button id="route-clear-btn">🗑️ Wyczyść trasę</button>
+</div>
+
+<div id="snackbar"></div>
+
+<script>
+// ==================== STATE ====================
+let map, tileLayer, currentLayers = [], searchMarker = null;
+let userData = null;
+let isDark = false;
+let activeLayerChip = 'default';
+let mapStyles = ['Standardowy','Satelita','Topograficzny'];
+let mapStyleIdx = 0;
+let placeCardOpen = false;
+
+const POLAND_CENTER = [52.0, 19.5];
+const POLAND_BOUNDS = [[49.0, 14.1], [54.9, 24.2]];
+
+// ==================== STORAGE ====================
+function save(key, val) { try { localStorage.setItem(key, JSON.stringify(val)); } catch(e){} }
+function load(key) { try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : null; } catch(e){ return null; } }
+
+// ==================== DARK MODE ====================
+function applyDark(dark) {
+  isDark = dark;
+  document.body.classList.toggle('dark', dark);
+  document.getElementById('dark-toggle').checked = dark;
+  save('dark', dark);
+  if (map) switchTile(activeLayerChip);
+}
+
+// ==================== MAP INIT ====================
+function initMap() {
+  map = L.map('map', {
+    center: POLAND_CENTER,
+    zoom: 6,
+    zoomControl: false,
+    minZoom: 6,
+    maxZoom: 18,
+    maxBounds: POLAND_BOUNDS,
+    maxBoundsViscosity: 0.9
+  });
+
+  switchTile('default');
+  addPOILayer();
+
+  map.on('click', function(e) {
+    closeSearchResults();
+    closePlaceCard();
+  });
+
+  document.getElementById('map-loading').style.display = 'none';
+}
+
+const TILE_URLS = {
+  default: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+  satellite: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+  traffic: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+};
+
+function switchTile(mode) {
+  if (tileLayer) map.removeLayer(tileLayer);
+  const url = TILE_URLS[mode] || TILE_URLS.default;
+  const isSat = mode === 'satellite';
+  tileLayer = L.tileLayer(url, {
+    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+    maxZoom: 19,
+    tileSize: isSat ? 256 : 256,
+    subdomains: isSat ? 'abc' : 'abc'
+  });
+  tileLayer.addTo(map);
+}
+
+// ==================== POI MARKERS ====================
+const poiData = {
+  gas: [
+    { lat:52.23, lng:21.01, name:'Orlen Warszawa Centrum', city:'Warszawa' },
+    { lat:50.06, lng:19.94, name:'Orlen Kraków Rondo', city:'Kraków' },
+    { lat:51.11, lng:17.03, name:'BP Wrocław Centrum', city:'Wrocław' },
+    { lat:54.35, lng:18.64, name:'Circle K Gdańsk', city:'Gdańsk' },
+    { lat:52.41, lng:16.93, name:'Shell Poznań', city:'Poznań' },
+    { lat:51.77, lng:19.46, name:'Lotos Łódź', city:'Łódź' },
+    { lat:53.13, lng:23.16, name:'Orlen Białystok', city:'Białystok' },
+  ],
+  shops: [
+    { lat:52.24, lng:21.03, name:'Biedronka Warszawa Śródmieście', city:'Warszawa' },
+    { lat:50.07, lng:19.96, name:'Lidl Kraków Stare Miasto', city:'Kraków' },
+    { lat:51.10, lng:17.05, name:'Carrefour Wrocław', city:'Wrocław' },
+    { lat:54.36, lng:18.66, name:'Auchan Gdańsk', city:'Gdańsk' },
+    { lat:52.42, lng:16.95, name:'Kaufland Poznań', city:'Poznań' },
+    { lat:51.78, lng:19.47, name:'Biedronka Łódź', city:'Łódź' },
+    { lat:50.27, lng:18.99, name:'Tesco Katowice', city:'Katowice' },
+  ],
+  food: [
+    { lat:52.23, lng:21.00, name:'Restauracja Polska Kuchnia', city:'Warszawa' },
+    { lat:50.06, lng:19.93, name:'Gospoda Krakowska', city:'Kraków' },
+    { lat:51.11, lng:17.02, name:'Pierogarnia Wrocławska', city:'Wrocław' },
+    { lat:54.35, lng:18.65, name:'Restauracja Gdańska', city:'Gdańsk' },
+    { lat:52.40, lng:16.92, name:'Bar Mleczny Poznań', city:'Poznań' },
+  ],
+  hotels: [
+    { lat:52.23, lng:21.02, name:'Hotel Marriott Warszawa', city:'Warszawa' },
+    { lat:50.06, lng:19.95, name:'Hotel Sheraton Kraków', city:'Kraków' },
+    { lat:51.10, lng:17.04, name:'Hotel Sofitel Wrocław', city:'Wrocław' },
+    { lat:54.36, lng:18.65, name:'Radisson Blu Gdańsk', city:'Gdańsk' },
+  ],
+  hospitals: [
+    { lat:52.22, lng:21.00, name:'Szpital Centralny Warszawa', city:'Warszawa' },
+    { lat:50.05, lng:19.94, name:'Szpital Uniwersytecki Kraków', city:'Kraków' },
+    { lat:51.10, lng:17.01, name:'Szpital Wojskowy Wrocław', city:'Wrocław' },
+    { lat:54.35, lng:18.63, name:'UCK Gdańsk', city:'Gdańsk' },
+  ]
+};
+
+const poiIcons = {
+  gas: '⛽', shops: '🛒', food: '🍽️', hotels: '🏨', hospitals: '🏥'
+};
+
+const poiColors = {
+  gas: '#f57c00', shops: '#1A73E8', food: '#d32f2f', hotels: '#7b1fa2', hospitals: '#c62828'
+};
+
+let poiMarkers = {};
+let activePoiLayer = null;
+
+function makeIcon(emoji, color) {
+  return L.divIcon({
+    html: `<div style="
+      background:${color};
+      border:2px solid #fff;
+      border-radius:50% 50% 50% 0;
+      transform:rotate(-45deg);
+      width:32px; height:32px;
+      display:flex; align-items:center; justify-content:center;
+      box-shadow:0 2px 8px rgba(0,0,0,0.3);
+      font-size:14px;
+    "><span style="transform:rotate(45deg);display:block">${emoji}</span></div>`,
+    className: '',
+    iconSize: [32, 32],
+    iconAnchor: [16, 32],
+    popupAnchor: [0, -36]
+  });
+}
+
+function addPOILayer() {
+  Object.keys(poiData).forEach(type => {
+    const group = L.layerGroup();
+    poiData[type].forEach(poi => {
+      const icon = makeIcon(poiIcons[type], poiColors[type]);
+      const m = L.marker([poi.lat, poi.lng], { icon }).on('click', () => {
+        showPlaceCard(poi.name, `${poiIcons[type]} ${type === 'gas' ? 'Stacja paliw' : type === 'shops' ? 'Sklep' : type === 'food' ? 'Restauracja' : type === 'hotels' ? 'Hotel' : 'Szpital'} · ${poi.city}`);
+      });
+      group.addLayer(m);
+    });
+    poiMarkers[type] = group;
+  });
+}
+
+function showPOI(type) {
+  if (activePoiLayer && map.hasLayer(poiMarkers[activePoiLayer])) {
+    map.removeLayer(poiMarkers[activePoiLayer]);
+    if (activePoiLayer === type) { activePoiLayer = null; return; }
+  }
+  map.addLayer(poiMarkers[type]);
+  activePoiLayer = type;
+}
+
+// ==================== LAYER CHIPS ====================
+document.querySelectorAll('.layer-chip').forEach(chip => {
+  chip.addEventListener('click', function() {
+    const layer = this.dataset.layer;
+    document.querySelectorAll('.layer-chip').forEach(c => c.classList.remove('active'));
+    this.classList.add('active');
+    activeLayerChip = layer;
+
+    if (['default','satellite','traffic'].includes(layer)) {
+      switchTile(layer);
+      if (activePoiLayer) {
+        map.removeLayer(poiMarkers[activePoiLayer]);
+        activePoiLayer = null;
+      }
+    } else {
+      switchTile('default');
+      showPOI(layer);
+    }
+  });
+});
+
+// ==================== ZOOM BUTTONS ====================
+document.getElementById('zoom-in').addEventListener('click', () => map && map.zoomIn());
+document.getElementById('zoom-out').addEventListener('click', () => map && map.zoomOut());
+document.getElementById('compass-btn').addEventListener('click', () => {
+  if (map) {
+    map.flyTo(POLAND_CENTER, 6, { duration: 1 });
+    showSnackbar('Wycentrowano na Polsce');
+  }
+});
+
+// ==================== LOCATE ====================
+document.getElementById('locate-btn').addEventListener('click', () => {
+  if (!navigator.geolocation) { showSnackbar('Lokalizacja niedostępna'); return; }
+  showSnackbar('Szukam lokalizacji…');
+  navigator.geolocation.getCurrentPosition(pos => {
+    const { latitude: lat, longitude: lng } = pos.coords;
+    const inPoland = lat >= 49 && lat <= 54.9 && lng >= 14.1 && lng <= 24.2;
+    if (!inPoland) { showSnackbar('Jesteś poza Polską'); return; }
+    const icon = L.divIcon({
+      html: `<div style="width:18px;height:18px;background:#1A73E8;border:3px solid #fff;border-radius:50%;box-shadow:0 0 0 4px rgba(26,115,232,0.25)"></div>`,
+      className:'', iconSize:[18,18], iconAnchor:[9,9]
+    });
+    if (searchMarker) map.removeLayer(searchMarker);
+    searchMarker = L.marker([lat, lng], { icon }).addTo(map).bindPopup('Jesteś tutaj').openPopup();
+    map.flyTo([lat, lng], 14, { duration: 1.2 });
+  }, () => showSnackbar('Brak dostępu do lokalizacji'));
+});
+
+// ==================== SEARCH ====================
+const searchInput = document.getElementById('search-input');
+const searchResults = document.getElementById('search-results');
+const searchClear = document.getElementById('search-clear');
+
+// Nominatim search (Poland-restricted)
+async function searchPlaces(query) {
+  if (!query.trim()) { closeSearchResults(); return; }
+  const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&countrycodes=pl&limit=8&accept-language=pl`;
+  try {
+    const resp = await fetch(url, { headers: { 'Accept-Language': 'pl' } });
+    const data = await resp.json();
+    renderSearchResults(data, query);
+  } catch(e) {
+    searchResults.style.display = 'none';
+  }
+}
+
+function renderSearchResults(data, query) {
+  if (!data.length) {
+    searchResults.innerHTML = '<div class="search-item"><span class="search-item-icon">❌</span><div class="search-item-text"><div class="search-item-name">Brak wyników</div><div class="search-item-sub">Spróbuj innej frazy</div></div></div>';
+    searchResults.style.display = 'block';
+    return;
+  }
+
+  const typeIcons = {
+    road:'🛣️', street:'🛣️', city:'🏙️', town:'🏘️', village:'🏡',
+    restaurant:'🍽️', shop:'🛒', fuel:'⛽', hospital:'🏥', hotel:'🏨',
+    museum:'🏛️', park:'🌳', school:'🏫', default:'📍'
+  };
+
+  function getIcon(item) {
+    const t = (item.type||'').toLowerCase();
+    const cl = (item.class||'').toLowerCase();
+    if (cl === 'amenity' && item.type === 'restaurant') return '🍽️';
+    if (cl === 'amenity' && item.type === 'fuel') return '⛽';
+    if (cl === 'amenity' && item.type === 'hospital') return '🏥';
+    if (cl === 'amenity' && item.type === 'hotel') return '🏨';
+    if (cl === 'highway') return '🛣️';
+    if (cl === 'place') return t === 'city' ? '🏙️' : t === 'town' ? '🏘️' : '🏡';
+    if (cl === 'leisure' && t === 'park') return '🌳';
+    return '📍';
+  }
+
+  searchResults.innerHTML = data.map(item => {
+    const name = item.display_name.split(',')[0];
+    const sub = item.display_name.split(',').slice(1, 3).join(',').trim();
+    return `<div class="search-item" data-lat="${item.lat}" data-lng="${item.lon}" data-name="${name}">
+      <span class="search-item-icon">${getIcon(item)}</span>
+      <div class="search-item-text">
+        <div class="search-item-name">${name}</div>
+        <div class="search-item-sub">${sub}</div>
+      </div>
+    </div>`;
+  }).join('');
+  searchResults.style.display = 'block';
+
+  searchResults.querySelectorAll('.search-item').forEach(el => {
+    el.addEventListener('click', () => {
+      const lat = parseFloat(el.dataset.lat);
+      const lng = parseFloat(el.dataset.lng);
+      const name = el.dataset.name;
+      gotoPlace(lat, lng, name);
+      closeSearchResults();
+    });
+  });
+}
+
+function gotoPlace(lat, lng, name) {
+  if (searchMarker) map.removeLayer(searchMarker);
+  const icon = makeIcon('📍', '#1A73E8');
+  searchMarker = L.marker([lat, lng], { icon }).addTo(map);
+  map.flyTo([lat, lng], 15, { duration: 1 });
+  showPlaceCard(name, '📍 Znalezione miejsce');
+  searchInput.value = name;
+}
+
+function closeSearchResults() {
+  searchResults.style.display = 'none';
+}
+
+let searchTimeout;
+searchInput.addEventListener('input', function() {
+  const q = this.value.trim();
+  searchClear.style.display = q ? 'block' : 'none';
+  clearTimeout(searchTimeout);
+  if (!q) { closeSearchResults(); return; }
+  searchTimeout = setTimeout(() => searchPlaces(q), 400);
+});
+
+searchClear.addEventListener('click', () => {
+  searchInput.value = '';
+  searchClear.style.display = 'none';
+  closeSearchResults();
+  if (searchMarker) { map.removeLayer(searchMarker); searchMarker = null; }
+  closePlaceCard();
+});
+
+// ==================== PLACE CARD ====================
+function showPlaceCard(name, type) {
+  document.getElementById('place-card-name').textContent = name;
+  document.getElementById('place-card-type').textContent = type;
+  const card = document.getElementById('place-card');
+  card.style.display = 'block';
+  card.classList.add('open');
+  placeCardOpen = true;
+}
+
+function closePlaceCard() {
+  document.getElementById('place-card').style.display = 'none';
+  placeCardOpen = false;
+}
+
+document.getElementById('place-card-close').addEventListener('click', closePlaceCard);
+document.getElementById('nav-btn').addEventListener('click', () => showSnackbar('Nawigacja uruchomiona'));
+document.getElementById('save-btn').addEventListener('click', () => showSnackbar('Miejsce zapisane'));
+document.getElementById('share-btn').addEventListener('click', () => {
+  if (navigator.share) {
+    navigator.share({ title: document.getElementById('place-card-name').textContent, url: location.href });
+  } else { showSnackbar('Skopiowano link do schowka'); }
+});
+
+// ==================== SNACKBAR ====================
+let snackTimer;
+function showSnackbar(msg) {
+  const el = document.getElementById('snackbar');
+  el.textContent = msg;
+  el.style.opacity = '1';
+  clearTimeout(snackTimer);
+  snackTimer = setTimeout(() => { el.style.opacity = '0'; }, 2500);
+}
+
+// ==================== ROBLOX LOGIN ====================
+// Plik otwierany lokalnie (file://) — żadne fetch API nie działa przez CORS.
+// Avatar ładujemy przez <img src> który CORS nie blokuje.
+// Username zapisujemy bez weryfikacji sieciowej.
+
+function loadRobloxAvatarByUsername(username, callback) {
+  // Roblox ma endpoint który przyjmuje nazwę i zwraca avatar jako redirect
+  // Działa przez img.src bo przeglądarka nie blokuje obrazków CORS
+  const img = new Image();
+  // Próbujemy przez publiczny serwis avatarów
+  img.onload = () => callback(img.src);
+  img.onerror = () => {
+    // Fallback 2: rbxcdn direct
+    const img2 = new Image();
+    img2.onload = () => callback(img2.src);
+    img2.onerror = () => callback(null);
+    img2.src = `https://www.roblox.com/headshot-thumbnail/image?userId=1&width=150&height=150`;
+    setTimeout(() => callback(null), 3000);
+  };
+  // avatarcdn.roproxy.com działa jako image proxy bez CORS
+  img.src = `https://avatars.roproxy.com/v1/users/avatar-headshot?userIds=placeholder&size=150x150&format=Png`;
+  setTimeout(() => callback(null), 3000);
+}
+
+async function fetchRobloxUser(username) {
+  if (!username || username.length < 3) return null;
+  if (!/^[a-zA-Z0-9_]{3,20}$/.test(username)) return null;
+  // Zwracamy od razu — avatar spróbujemy załadować przez img po zapisaniu
+  return { userId: null, username: username, avatarUrl: null };
+}
+
+function applyUserData(user) {
+  userData = user;
+  if (!user) return;
+
+  const initials = user.username.slice(0,2).toUpperCase();
+  document.getElementById('drawer-avatar-initials').textContent = initials;
+  document.getElementById('profile-name').textContent = user.username;
+  document.getElementById('current-account-label').textContent = `@${user.username}`;
+  document.getElementById('profile-sub').textContent = `Konto Roblox`;
+
+  if (user.avatarUrl) {
+    const imgs = [document.getElementById('profile-img'), document.getElementById('drawer-avatar-img')];
+    imgs.forEach(img => {
+      img.src = user.avatarUrl;
+      img.style.display = 'block';
+    });
+    document.getElementById('profile-btn-icon').style.display = 'none';
+    document.getElementById('drawer-avatar-initials').style.display = 'none';
+  }
+}
+
+// Onboarding
+document.getElementById('onboarding-submit').addEventListener('click', async function() {
+  const username = document.getElementById('roblox-input').value.trim();
+  if (!username) return;
+
+  document.getElementById('onboarding-error').style.display = 'none';
+  document.getElementById('roblox-input').classList.remove('error');
+
+  const valid = /^[a-zA-Z0-9][a-zA-Z0-9_]{1,18}[a-zA-Z0-9]$|^[a-zA-Z0-9]{3}$/.test(username);
+  if (!valid) {
+    document.getElementById('onboarding-error').textContent = 'Nieprawidłowa nazwa (3-20 znaków, litery/cyfry/_)';
+    document.getElementById('onboarding-error').style.display = 'block';
+    document.getElementById('roblox-input').classList.add('error');
+    return;
+  }
+
+  this.disabled = true;
+  this.textContent = '⏳ Logowanie…';
+
+  const user = { userId: null, username: username, avatarUrl: null };
+  save('roblox_user', user);
+  applyUserData(user);
+  document.getElementById('onboarding').style.display = 'none';
+  showSnackbar(`Witaj, ${username}! 🎉`);
+
+  // Próba załadowania avatara przez img (działa nawet z file://)
+  tryLoadAvatar(username);
+
+  this.disabled = false;
+  this.textContent = 'Zaloguj się przez Roblox';
+});
+
+function tryLoadAvatar(username) {
+  // roproxy.com to publiczne mirror Roblox API które wysyła CORS headers
+  const img = new Image();
+  img.crossOrigin = '';
+  img.onload = () => {
+    const saved = load('roblox_user');
+    if (saved && saved.username === username) {
+      saved.avatarUrl = img.src;
+      save('roblox_user', saved);
+    }
+    [document.getElementById('profile-img'), document.getElementById('drawer-avatar-img')].forEach(el => {
+      el.src = img.src;
+      el.style.display = 'block';
+    });
+    document.getElementById('profile-btn-icon').style.display = 'none';
+    document.getElementById('drawer-avatar-initials').style.display = 'none';
+  };
+  img.onerror = () => {}; // brak avatara — zostają inicjały, nic się nie psuje
+  // roproxy działa jak Roblox API ale z CORS headersami
+  img.src = `https://roproxy.com/headshot-thumbnail/image?username=${encodeURIComponent(username)}&width=150&height=150&format=png`;
+}
+
+document.getElementById('roblox-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') document.getElementById('onboarding-submit').click();
+});
+
+document.getElementById('onboarding-skip').addEventListener('click', () => {
+  document.getElementById('onboarding').style.display = 'none';
+});
+
+// ==================== PROFILE PANEL ====================
+document.getElementById('profile-btn').addEventListener('click', () => {
+  const panel = document.getElementById('profile-panel');
+  panel.style.display = 'flex';
+  requestAnimationFrame(() => panel.classList.add('open'));
+});
+
+function closeProfilePanel() {
+  const panel = document.getElementById('profile-panel');
+  panel.classList.remove('open');
+  setTimeout(() => { panel.style.display = 'none'; }, 300);
+}
+
+document.getElementById('profile-panel').addEventListener('click', function(e) {
+  if (e.target === this) closeProfilePanel();
+});
+document.getElementById('profile-close-btn').addEventListener('click', closeProfilePanel);
+
+document.getElementById('dark-toggle').addEventListener('change', function() {
+  applyDark(this.checked);
+});
+
+document.getElementById('logout-btn').addEventListener('click', () => {
+  localStorage.removeItem('roblox_user');
+  userData = null;
+  document.getElementById('profile-img').style.display = 'none';
+  document.getElementById('profile-btn-icon').style.display = 'flex';
+  document.getElementById('profile-name').textContent = 'Gość';
+  document.getElementById('profile-sub').textContent = 'Roblox';
+  document.getElementById('drawer-avatar-img').style.display = 'none';
+  document.getElementById('drawer-avatar-initials').textContent = '?';
+  document.getElementById('current-account-label').textContent = 'Brak konta';
+  closeProfilePanel();
+  setTimeout(() => { document.getElementById('onboarding').style.display = 'flex'; }, 400);
+});
+
+document.getElementById('map-style-row').addEventListener('click', () => {
+  mapStyleIdx = (mapStyleIdx + 1) % mapStyles.length;
+  document.getElementById('map-style-label').textContent = mapStyles[mapStyleIdx];
+  showSnackbar(`Styl mapy: ${mapStyles[mapStyleIdx]}`);
+});
+
+// ==================== ROUTE A→B ====================
+let routeLayer = null;
+let routeMarkers = [];
+
+document.getElementById('route-fab').addEventListener('click', () => {
+  closePlaceCard();
+  const panel = document.getElementById('route-panel');
+  panel.style.display = panel.style.display === 'block' ? 'none' : 'block';
+});
+
+document.getElementById('route-close-btn').addEventListener('click', () => {
+  document.getElementById('route-panel').style.display = 'none';
+});
+
+document.getElementById('route-swap-btn').addEventListener('click', () => {
+  const a = document.getElementById('route-a');
+  const b = document.getElementById('route-b');
+  [a.value, b.value] = [b.value, a.value];
+});
+
+async function geocodePlace(query) {
+  const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&countrycodes=pl&limit=1`;
+  const resp = await fetch(url, { headers: { 'Accept-Language': 'pl' } });
+  const data = await resp.json();
+  if (!data.length) return null;
+  return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon), name: data[0].display_name.split(',')[0] };
+}
+
+async function fetchRoute(fromLat, fromLng, toLat, toLng) {
+  const url = `https://router.project-osrm.org/route/v1/driving/${fromLng},${fromLat};${toLng},${toLat}?overview=full&geometries=geojson`;
+  const resp = await fetch(url);
+  const data = await resp.json();
+  if (data.code !== 'Ok') return null;
+  const route = data.routes[0];
+  return {
+    coords: route.geometry.coordinates.map(([lng, lat]) => [lat, lng]),
+    distance: route.distance,
+    duration: route.duration
+  };
+}
+
+function clearRoute() {
+  if (routeLayer) { map.removeLayer(routeLayer); routeLayer = null; }
+  routeMarkers.forEach(m => map.removeLayer(m));
+  routeMarkers = [];
+  document.getElementById('route-info').style.display = 'none';
+  document.getElementById('route-clear-btn').style.display = 'none';
+}
+
+document.getElementById('route-clear-btn').addEventListener('click', clearRoute);
+
+document.getElementById('route-go-btn').addEventListener('click', async function() {
+  const aVal = document.getElementById('route-a').value.trim();
+  const bVal = document.getElementById('route-b').value.trim();
+  if (!aVal || !bVal) { showSnackbar('Wpisz oba punkty trasy'); return; }
+
+  this.disabled = true;
+  this.textContent = '⏳ Szukam trasy…';
+  clearRoute();
+
+  try {
+    const [from, to] = await Promise.all([geocodePlace(aVal), geocodePlace(bVal)]);
+    if (!from) { showSnackbar(`Nie znaleziono: ${aVal}`); return; }
+    if (!to) { showSnackbar(`Nie znaleziono: ${bVal}`); return; }
+
+    const route = await fetchRoute(from.lat, from.lng, to.lat, to.lng);
+    if (!route) { showSnackbar('Nie można wyznaczyć trasy'); return; }
+
+    // Draw route
+    routeLayer = L.polyline(route.coords, {
+      color: '#1A73E8', weight: 5, opacity: 0.85, lineJoin: 'round'
+    }).addTo(map);
+
+    // Markers A and B
+    const iconA = L.divIcon({
+      html: `<div style="background:#34a853;color:#fff;border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;border:2px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,0.3)">A</div>`,
+      className:'', iconSize:[28,28], iconAnchor:[14,14]
+    });
+    const iconB = L.divIcon({
+      html: `<div style="background:#e53935;color:#fff;border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;border:2px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,0.3)">B</div>`,
+      className:'', iconSize:[28,28], iconAnchor:[14,14]
+    });
+
+    routeMarkers.push(
+      L.marker([from.lat, from.lng], { icon: iconA }).bindPopup(`🟢 ${from.name}`).addTo(map),
+      L.marker([to.lat, to.lng], { icon: iconB }).bindPopup(`🔴 ${to.name}`).addTo(map)
+    );
+
+    map.fitBounds(routeLayer.getBounds(), { padding: [40, 40] });
+
+    // Info
+    const km = (route.distance / 1000).toFixed(1);
+    const mins = Math.round(route.duration / 60);
+    const hrs = Math.floor(mins / 60);
+    const minLeft = mins % 60;
+    const timeStr = hrs > 0 ? `${hrs} godz. ${minLeft} min` : `${mins} min`;
+
+    const info = document.getElementById('route-info');
+    info.innerHTML = `<strong>📍 ${from.name} → ${to.name}</strong><br>🚗 Czas: ${timeStr} &nbsp;|&nbsp; 📏 Dystans: ${km} km`;
+    info.style.display = 'block';
+    document.getElementById('route-clear-btn').style.display = 'block';
+
+  } catch(e) {
+    showSnackbar('Błąd podczas wyznaczania trasy');
+  } finally {
+    this.disabled = false;
+    this.textContent = 'Wyznacz trasę';
+  }
+});
+
+// ==================== BOOT ====================
+window.addEventListener('load', () => {
+  // Check saved dark mode
+  const savedDark = load('dark');
+  if (savedDark) applyDark(true);
+
+  // Check saved user
+  const savedUser = load('roblox_user');
+  if (savedUser) {
+    applyUserData(savedUser);
+    document.getElementById('onboarding').style.display = 'none';
+  }
+
+  // Init map after short delay (for tile resources)
+  setTimeout(initMap, 200);
+});
+</script>
+</body>
+</html>
